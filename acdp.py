@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# vim:expandtab:shiftwidth=4:ts=4:
+# vim:expandtab:shiftwidth=4:ts=4:smarttab:
 #
 
 import urllib,urllib2
@@ -8,6 +8,9 @@ import re
 import tempfile
 import sys
 import os
+import tempfile
+import difflib
+import time
 
 HOME=os.getenv("HOME", "")
 CONFIGFILE="%s/.acdp" % HOME
@@ -17,8 +20,10 @@ CONFIGFILE="%s/.acdp" % HOME
 login_failure=re.compile('.*Login Failed. Please try again.*')
 # month listing
 list_entry = re.compile('<tr class="row1">\n\s*<td align="center">(\d+)</td>\n\s*<td align="left">(.*)</td>\n\s*<td align="center">(\d+)</td>\n\s*<td align="left"></td>\n\s*<td align="left">(.*)</td>')
+# project listing
 project_entry = re.compile('\?proj_id=(\d+)">(.*)</a>')
-
+# editable entry
+pyacdp_entry = re.compile('([+-]) (\d+)\s*(\d+)\s*(\d+)\s*(.*)')
 
 DEFAULT_HOST="https://acdp.mandriva.com.br/"
 
@@ -77,10 +82,29 @@ class ACDP:
         projects = project_entry.findall(res_nl)
         return projects
 
+
+def leave(name_in, name_out, retcode=0):
+    """Cleanups temporary files"""
+    os.unlink(name_in)
+    os.unlink(name_out)
+    sys.exit(retcode)
+
 if __name__ == "__main__":
     acdp = ACDP()
+    fd_in, name_in = tempfile.mkstemp(suffix='acdp')
+    fd_in = open(name_in, "w")
+    fd_out, name_out = tempfile.mkstemp(suffix='acdp')
+    fd_out = open(name_out, "w")
     login = None
     passwd = None
+
+    if len(sys.argv) < 3:
+        print "Usage: %s <month> <year>" % sys.argv[0]
+        leave(name_in, name_out, 1)
+
+    month = int(sys.argv[1])
+    year = int(sys.argv[2])
+
     try:
         print CONFIGFILE
         fd = open(CONFIGFILE, "r")
@@ -89,29 +113,70 @@ if __name__ == "__main__":
         fd.close()
     except:
         print "Error: please create %s, containing my.mandriva login on first line\nand password on 2nd" % CONFIGFILE
-        sys.exit(1)
+        leave(name_in, name_out, 1)
+
+    # login
     if not acdp.login(login, passwd):
         print "Unable to login."
-        sys.exit(1)
+        leave(name_in, name_out, 1)
     recent_projects = acdp.list_recent()
+    hours = acdp.list_hours(year, month)
+
     projects_cache = {}
-    print "# recent projects:"
+    projects_rev_cache = {}
+    print >>fd_in, "# acdp data for %s / %s" % (month, year)
+    print >>fd_in, "# cache of recent projects:"
     projects = {}
     for id, project in recent_projects:
         projects_cache[project] = id
-        print "# %s - %s" % (id, project)
+        projects_rev_cache[id] = project
+        print >>fd_in, "# %s - %s" % (id, project)
         projects[project] = []
-    print
+    print >> fd_in
 
-    hours = acdp.list_hours(2010, 11)
     for day, project, hours, descr in hours:
         if project not in projects:
             projects[project] = []
         projects[project].append((day, hours, descr))
 
     for project in projects:
-        print "- %s" % project
-        print "# day\thours\tdescription"
+        print >>fd_in, "- %s" % project
+        print >>fd_in, "# %pid\tday\thours\tdescription"
         for day, hours, descr in projects[project]:
-            print "%s\t%s\t%s" % (day, hours, descr)
-        print
+            pid = projects_cache.get(project, '-1')
+            print >>fd_in, "%s\t%s\t%s\t%s" % (pid, day, hours, descr)
+        print >>fd_in
+
+    # generate diffable files
+    fd_in.close()
+    with open(name_in, "r") as fd_in:
+        data_in = fd_in.read()
+    fd_out.write(data_in)
+    fd_out.close()
+
+    # edit output file
+    editor = os.getenv("VISUAL")
+    if not editor:
+        print "Error: VISUAL not defined, don't know what editor to use"
+        leave(name_in, name_out, 1)
+
+    if os.system("%s %s" % (editor, name_in)) != 0:
+        print "Unable to edit file, aborting."
+        leave(name_in, name_out, 1)
+
+    # calculate diff
+    fromdate = time.ctime(os.stat(name_out).st_mtime)
+    todate = time.ctime(os.stat(name_in).st_mtime)
+    fromlines = open(name_out, "U").readlines()
+    tolines = open(name_in, "U").readlines()
+
+    diff = difflib.ndiff(fromlines, tolines)
+    changes = []
+    for l in diff:
+        res = pyacdp_entry.findall(l)
+        if res:
+            changes.append(res)
+
+    print changes
+
+    leave(name_in, name_out)
