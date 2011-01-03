@@ -34,9 +34,13 @@ class ACDP:
         self.host = host
         self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor())
         urllib2.install_opener(self.opener)
+        self.projects_cache = {}
+        self.projects_rev_cache = {}
         pass
 
     def login(self, login, passwd):
+        """Login"""
+        # TODO: person_id, person_name
         url = self.host + '/acdp/login.php'
         params = urllib.urlencode({
             'action': 'login',
@@ -80,7 +84,19 @@ class ACDP:
         if DEBUG:
             print res_nl
         projects = project_entry.findall(res_nl)
+        for id, project in projects:
+            self.projects_cache[project] = id
+            self.projects_rev_cache[id] = project
         return projects
+
+
+    def remove(self, proj, day, hours, descr):
+        """Remove an entry"""
+        pass
+
+    def add(self, proj, day, hours, descr):
+        """Add an entry"""
+        pass
 
 
 def leave(name_in, name_out, retcode=0):
@@ -122,14 +138,10 @@ if __name__ == "__main__":
     recent_projects = acdp.list_recent()
     hours = acdp.list_hours(year, month)
 
-    projects_cache = {}
-    projects_rev_cache = {}
     print >>fd_in, "# acdp data for %s / %s" % (month, year)
     print >>fd_in, "# cache of recent projects:"
     projects = {}
     for id, project in recent_projects:
-        projects_cache[project] = id
-        projects_rev_cache[id] = project
         print >>fd_in, "# %s - %s" % (id, project)
         projects[project] = []
     print >> fd_in
@@ -143,7 +155,7 @@ if __name__ == "__main__":
         print >>fd_in, "# %s" % project
         print >>fd_in, "# %pid\tday\thours\tdescription"
         for day, hours, descr in projects[project]:
-            pid = projects_cache.get(project, '-1')
+            pid = acdp.projects_cache.get(project, '-1')
             print >>fd_in, "%s\t%s\t%s\t%s" % (pid, day, hours, descr)
         print >>fd_in
 
@@ -177,8 +189,20 @@ if __name__ == "__main__":
 
     for op, proj, day, hours, descr in changes:
         if op == '-':
-            print 'Removing <%s> (%s hours on %s) from %s' % (descr, hours, day, projects_rev_cache.get(proj, proj))
+            print 'Removing <%s> (%s hours on %s) from %s' % (descr, hours, day, acdp.projects_rev_cache.get(proj, proj))
         elif op == '+':
-            print 'Adding <%s> (%s hours on %s) to %s' % (descr, hours, day, projects_rev_cache.get(proj, proj))
+            print 'Adding <%s> (%s hours on %s) to %s' % (descr, hours, day, acdp.projects_rev_cache.get(proj, proj))
 
+    print "Press ENTER to confirm or CTRL-C to abort.."
+    try:
+        res = raw_input()
+    except:
+        leave(name_in, name_out)
+
+    # action
+    for op, proj, day, hours, descr in changes:
+        if op == '-':
+            acdp.remove(proj, day, hours, descr)
+        elif op == '+':
+            acdp.add(proj, day, hours, descr)
     leave(name_in, name_out)
