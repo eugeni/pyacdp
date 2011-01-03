@@ -1,0 +1,4 @@
+This is a python interface for acdp.
+
+To use it, create a ~/.acdp file containing your my.mandriva login on first
+line, and password on second.
