@@ -140,7 +140,7 @@ if __name__ == "__main__":
         projects[project].append((day, hours, descr))
 
     for project in projects:
-        print >>fd_in, "- %s" % project
+        print >>fd_in, "# %s" % project
         print >>fd_in, "# %pid\tday\thours\tdescription"
         for day, hours, descr in projects[project]:
             pid = projects_cache.get(project, '-1')
@@ -170,13 +170,15 @@ if __name__ == "__main__":
     fromlines = open(name_out, "U").readlines()
     tolines = open(name_in, "U").readlines()
 
-    diff = difflib.ndiff(fromlines, tolines)
-    changes = []
-    for l in diff:
-        res = pyacdp_entry.findall(l)
-        if res:
-            changes.append(res)
+    diff = "\n".join(difflib.ndiff(fromlines, tolines))
+    changes = pyacdp_entry.findall(diff)
 
     print changes
+
+    for op, proj, day, hours, descr in changes:
+        if op == '-':
+            print 'Removing <%s> (%s hours on %s) from %s' % (descr, hours, day, projects_rev_cache.get(proj, proj))
+        elif op == '+':
+            print 'Adding <%s> (%s hours on %s) to %s' % (descr, hours, day, projects_rev_cache.get(proj, proj))
 
     leave(name_in, name_out)
