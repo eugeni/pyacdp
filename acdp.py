@@ -1,5 +1,12 @@
 #!/usr/bin/python
 #
+# Python frontend for editing ACDP hours with your favorite editor
+# (discovered from VISUAL env)
+#
+# Copyright, (C) Eugeni Dodonov <eugeni@dodonov.net>, 2010
+#
+# Distributed under GPLv2 licence.
+#
 # vim:expandtab:shiftwidth=4:ts=4:smarttab:
 #
 
