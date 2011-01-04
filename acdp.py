@@ -31,6 +31,9 @@ pyacdp_entry = re.compile('([+-]) (\d+)\s*(\d+)\s*(\d+)\s*(.*)')
 hours_added = re.compile('Your hours were added successfully')
 # hours failure
 hours_failure = re.compile('<span class="errormini">(.*)</span>')
+# hours_modify_template
+hours_modify_t = '<td align="left">%(project)s</td>\\n\\s*<td align="left">%(hours)s</td>\\n\\s*<td align="left">%(descr)s</td>\\n\\s*<td align="right"><form method="post" action="horas_projeto.php\?action=updatehrs&hours_id=(\\d+)"><input type="submit" name="updatehrs" value="Update"></form></td>'
+
 
 DEFAULT_HOST="https://acdp.mandriva.com.br/"
 
@@ -111,14 +114,46 @@ class ACDP:
         return projects
 
 
-    def remove(self, proj, day, hours, descr):
+    def remove(self, proj, year, month, day, hours, descr):
         """Remove an entry"""
-        print "Deletion of hours still not implemented, please do it manually!"
+        print 'Removing "%s" (%s hours on %s) from %s: ' % (descr, hours, day, acdp.projects_rev_cache.get(proj, proj)),
+        if not self.person_id or not self.person_name:
+            print "Error: unable to add hours, unknown person_id or person_name"
+            return False
+        # fix day size
+        if len(day) == 1:
+            day = '0%s' % day
+
+        # first lets get the hours id
+        url = self.host + "/acdp/relatorio.php?action=day&person_id=%s&report_day=%s&report_month=%s&report_year=%s" % (self.person_id, day, month, year)
+        con = self.opener.open(url)
+        res = con.read()
+        hours_modify_c = hours_modify_t % ({'descr': descr, 'hours': hours, 'project': self.projects_rev_cache[proj]})
+        if DEBUG:
+            print hours_modify_c
+        hours_modify_r = re.compile(hours_modify_c)
+        hours_id_match = hours_modify_r.findall(res)
+        if len(hours_id_match) > 0:
+            hours_id = hours_id_match[0]
+        else:
+            print " Unable to determine hours_id, please delete the item manually"
+
+        print "hours_id: %s " % hours_id,
+
+        # let the fun begin
+        url = self.host + '/acdp/horas_projeto.php?proj_id=%s' % proj
+        params = urllib.urlencode({
+            'action': 'remove',
+            'hours_id': hours_id,
+            })
+        con = self.opener.open(url, params)
+        res = con.read()
+        print "done"
         pass
 
     def add(self, proj, year, month, day, hours, descr):
         """Add an entry"""
-        print 'Adding <%s> (%s hours on %s) to %s: ' % (descr, hours, day, acdp.projects_rev_cache.get(proj, proj)),
+        print 'Adding "%s" (%s hours on %s) to %s: ' % (descr, hours, day, acdp.projects_rev_cache.get(proj, proj)),
         if not self.person_id or not self.person_name:
             print "Error: unable to add hours, unknown person_id or person_name"
             return False
