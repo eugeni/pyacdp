@@ -28,6 +28,8 @@ list_entry = re.compile('<tr class="row1">\n\s*<td align="center">(\d+)</td>\n\s
 project_entry = re.compile('\?proj_id=(\d+)">(.*)</a>')
 # editable entry
 pyacdp_entry = re.compile('([+-]) (\d+)\s*(\d+)\s*(\d+)\s*(.*)')
+# hours added
+hours_added = re.compile('Your hours were added successfully')
 
 DEFAULT_HOST="https://acdp.mandriva.com.br/"
 
@@ -114,6 +116,7 @@ class ACDP:
 
     def add(self, proj, year, month, day, hours, descr):
         """Add an entry"""
+        print 'Adding <%s> (%s hours on %s) to %s: ' % (descr, hours, day, acdp.projects_rev_cache.get(proj, proj)),
         if not self.person_id or not self.person_name:
             print "Error: unable to add hours, unknown person_id or person_name"
             return False
@@ -134,7 +137,13 @@ class ACDP:
             })
         con = self.opener.open(url, params)
         res = con.read()
-        print res
+        success = hours_added.findall(res)
+        if success:
+            print 'success'
+            return True
+        else:
+            print 'failure'
+            return False
         pass
 
 
