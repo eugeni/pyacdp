@@ -18,6 +18,10 @@ CONFIGFILE="%s/.acdp" % HOME
 # regexps
 # login failure
 login_failure=re.compile('.*Login Failed. Please try again.*')
+# person_id
+person_id_r = re.compile('name="person_id" value="(\d+)"')
+# person_name
+person_name_r = re.compile('name="person_name" value="(.*)"></center>Internal Hours')
 # month listing
 list_entry = re.compile('<tr class="row1">\n\s*<td align="center">(\d+)</td>\n\s*<td align="left">(.*)</td>\n\s*<td align="center">(\d+)</td>\n\s*<td align="left"></td>\n\s*<td align="left">(.*)</td>')
 # project listing
@@ -36,6 +40,8 @@ class ACDP:
         urllib2.install_opener(self.opener)
         self.projects_cache = {}
         self.projects_rev_cache = {}
+        self.person_id = None
+        self.person_name = None
         pass
 
     def login(self, login, passwd):
@@ -84,6 +90,18 @@ class ACDP:
         if DEBUG:
             print res_nl
         projects = project_entry.findall(res_nl)
+        person_id = person_id_r.findall(res_nl)
+        if person_id:
+            self.person_id = person_id[0]
+        else:
+            print "Error: person_id not found"
+            return []
+        person_name = person_name_r.findall(res_nl)
+        if person_name:
+            self.person_name = person_name[0]
+        else:
+            print "Error: person_name not found"
+            return []
         for id, project in projects:
             self.projects_cache[project] = id
             self.projects_rev_cache[id] = project
@@ -94,8 +112,29 @@ class ACDP:
         """Remove an entry"""
         pass
 
-    def add(self, proj, day, hours, descr):
+    def add(self, proj, year, month, day, hours, descr):
         """Add an entry"""
+        if not self.person_id or not self.person_name:
+            print "Error: unable to add hours, unknown person_id or person_name"
+            return False
+        url = self.host + '/acdp/horas_projeto.php?proj_id=%s' % proj
+        params = urllib.urlencode({
+            'find_single': '1',
+            'action': 'add',
+            'first_action': 'add',
+            'do_action': '1',
+            'person_id': self.person_id,
+            'person_name': self.person_name,
+            'horas': hours,
+            'hours_desc': descr,
+            'date_day': day,
+            'date_month': month,
+            'date_year': year,
+            'detailed': '1'
+            })
+        con = self.opener.open(url, params)
+        res = con.read()
+        print res
         pass
 
 
@@ -202,7 +241,7 @@ if __name__ == "__main__":
     # action
     for op, proj, day, hours, descr in changes:
         if op == '-':
-            acdp.remove(proj, day, hours, descr)
+            acdp.remove(proj, year, month, day, hours, descr)
         elif op == '+':
-            acdp.add(proj, day, hours, descr)
+            acdp.add(proj, year, month, day, hours, descr)
     leave(name_in, name_out)
