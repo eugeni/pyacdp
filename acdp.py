@@ -113,6 +113,7 @@ class ACDP:
 
     def remove(self, proj, day, hours, descr):
         """Remove an entry"""
+        print "Deletion of hours still not implemented, please do it manually!"
         pass
 
     def add(self, proj, year, month, day, hours, descr):
@@ -183,7 +184,7 @@ if __name__ == "__main__":
     year = int(sys.argv[2])
 
     try:
-        print CONFIGFILE
+        print "Loading authentication settings from %s" % CONFIGFILE
         fd = open(CONFIGFILE, "r")
         login = fd.readline().strip()
         passwd = fd.readline().strip()
