@@ -8,7 +8,6 @@ import re
 import tempfile
 import sys
 import os
-import tempfile
 import difflib
 import time
 
@@ -30,6 +29,8 @@ project_entry = re.compile('\?proj_id=(\d+)">(.*)</a>')
 pyacdp_entry = re.compile('([+-]) (\d+)\s*(\d+)\s*(\d+)\s*(.*)')
 # hours added
 hours_added = re.compile('Your hours were added successfully')
+# hours failure
+hours_failure = re.compile('<span class="errormini">(.*)</span>')
 
 DEFAULT_HOST="https://acdp.mandriva.com.br/"
 
@@ -120,6 +121,9 @@ class ACDP:
         if not self.person_id or not self.person_name:
             print "Error: unable to add hours, unknown person_id or person_name"
             return False
+        # fix day size
+        if len(day) == 1:
+            day = '0%s' % day
         url = self.host + '/acdp/horas_projeto.php?proj_id=%s' % proj
         params = urllib.urlencode({
             'find_single': '1',
@@ -142,7 +146,16 @@ class ACDP:
             print 'success'
             return True
         else:
-            print 'failure'
+            error = hours_failure.findall(res)
+            if error:
+                error_msg = error[0]
+            else:
+                error_msg = 'no details'
+            tmp_in, tmp_name = tempfile.mkstemp(prefix='acdp_failure')
+            fd = open(tmp_name, 'w')
+            fd.write(res)
+            fd.close()
+            print 'failure (%s), full output available in %s' % tmp_name
             return False
         pass
 
@@ -233,13 +246,11 @@ if __name__ == "__main__":
     diff = "\n".join(difflib.ndiff(fromlines, tolines))
     changes = pyacdp_entry.findall(diff)
 
-    print changes
-
     for op, proj, day, hours, descr in changes:
         if op == '-':
-            print 'Removing <%s> (%s hours on %s) from %s' % (descr, hours, day, acdp.projects_rev_cache.get(proj, proj))
+            print 'Removing "%s" (%s hours on %s) from %s' % (descr, hours, day, acdp.projects_rev_cache.get(proj, proj))
         elif op == '+':
-            print 'Adding <%s> (%s hours on %s) to %s' % (descr, hours, day, acdp.projects_rev_cache.get(proj, proj))
+            print 'Adding "%s" (%s hours on %s) to %s' % (descr, hours, day, acdp.projects_rev_cache.get(proj, proj))
 
     print "Press ENTER to confirm or CTRL-C to abort.."
     try:
