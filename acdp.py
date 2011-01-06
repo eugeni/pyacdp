@@ -130,6 +130,9 @@ class ACDP:
         # fix day size
         if len(day) == 1:
             day = '0%s' % day
+        month = str(month)
+        if len(month) == 1:
+            month = '0%s' % month
 
         # first lets get the hours id
         url = self.host + "/acdp/relatorio.php?action=day&person_id=%s&report_day=%s&report_month=%s&report_year=%s" % (self.person_id, day, month, year)
@@ -167,6 +170,9 @@ class ACDP:
         # fix day size
         if len(day) == 1:
             day = '0%s' % day
+        month = str(month)
+        if len(month) == 1:
+            month = '0%s' % month
         url = self.host + '/acdp/horas_projeto.php?proj_id=%s' % proj
         params = urllib.urlencode({
             'find_single': '1',
