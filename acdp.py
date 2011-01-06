@@ -198,7 +198,7 @@ class ACDP:
             fd = open(tmp_name, 'w')
             fd.write(res)
             fd.close()
-            print 'failure (%s), full output available in %s' % tmp_name
+            print 'failure (%s), full output available in %s' % (error_msg, tmp_name)
             return False
         pass
 
